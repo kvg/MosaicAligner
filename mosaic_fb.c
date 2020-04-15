@@ -6,9 +6,9 @@
 #include "tools.h"
 #include "seqtools.h"
 #include "mosaic_fb.h"
+#include <stdlib.h>
 
 #define DEBUG 0
-
 
 main(int argc, char *argv[]) {
 
@@ -1619,11 +1619,15 @@ void kalign_vt(struct data *my_data, struct pars *my_pars, struct matrices *my_m
 	ofp = fopen(my_pars->alignment_file, "a");
 	fprintf(ofp,"\nTarget: %s\tLength: %i\tMLlk: %.3lf\n",my_data->seqs[target]->name, my_data->seqs[target]->length, my_matrices->llk);
 
+	const int printWidth = 30;
+	char formatString[100];
+	sprintf(formatString, "%%%ds\t", printWidth);
+
 	/*First print target sequence*/
 	cp++;
-	strncpy(tmp_name, my_data->seqs[target]->name, 15);
-	tmp_name[15]='\0';
-	fprintf(ofp,"%15s\t", tmp_name);
+	strncpy(tmp_name, my_data->seqs[target]->name, printWidth);
+	tmp_name[printWidth]='\0';
+	fprintf(ofp,formatString, tmp_name);
 	for (i=cp,pos_target=1;i<=2*my_matrices->maxl;i++) {
 		if (my_matrices->maxpath_state[i]==3) fprintf(ofp,"-");
 		else {
@@ -1635,7 +1639,7 @@ void kalign_vt(struct data *my_data, struct pars *my_pars, struct matrices *my_m
 	fflush(ofp);
 
 	/*Now do matching*/
-	for (i=1;i<=15;i++) fprintf(ofp," ");
+	for (i=1;i<=printWidth;i++) fprintf(ofp," ");
 	fprintf(ofp,"\t");
 	for (i=cp, pos_target=1;i<=2*my_matrices->maxl;i++) {
 		if (my_matrices->maxpath_state[i]==1) {
@@ -1653,16 +1657,17 @@ void kalign_vt(struct data *my_data, struct pars *my_pars, struct matrices *my_m
 	fflush(ofp);
 
 	/*Now do copy tracks - switch whenever gets to new value*/
-	strncpy(tmp_name, my_data->seqs[my_matrices->maxpath_copy[cp]]->name, 15);
-	tmp_name[15]='\0';
-	fprintf(ofp,"%15s\t",tmp_name);
+	strncpy(tmp_name, my_data->seqs[my_matrices->maxpath_copy[cp]]->name, printWidth);
+	tmp_name[printWidth]='\0';
+	fprintf(ofp,formatString,tmp_name);
 	for (i=cp;i<=2*my_matrices->maxl;i++) {
 
 		/*Check to see if need to make recombination event*/
 		if (i>cp && my_matrices->maxpath_copy[i]!=my_matrices->maxpath_copy[i-1]) {
-			strncpy(tmp_name, my_data->seqs[my_matrices->maxpath_copy[i]]->name, 15);
-			tmp_name[15]='\0';
-			fprintf(ofp,"\n%15s\t", tmp_name);
+			strncpy(tmp_name, my_data->seqs[my_matrices->maxpath_copy[i]]->name, printWidth);
+			tmp_name[printWidth]='\0';
+			fprintf(ofp, "\n");
+			fprintf(ofp, formatString, tmp_name);
 			for (j=1;j<=(i-cp);j++) fprintf(ofp," ");
 		}
 
