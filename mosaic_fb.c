@@ -11,7 +11,7 @@
 
 #define DEBUG 0
 
-main(int argc, char *argv[]) {
+int main(int argc, char *argv[]) {
 
 	int target;
 	unsigned int seq_n;
@@ -1626,26 +1626,49 @@ void kalign_vt(struct data *my_data, struct pars *my_pars, struct matrices *my_m
 	fprintf(ofp,"\nTarget: %s\tLength: %i\tMLlk: %.3lf\n",my_data->seqs[target]->name, my_data->seqs[target]->length, my_matrices->llk);
 
 	const int printWidth = gDISPLAY_WIDTH;
+	const int coordWidth = 12;
 	char formatString[100];
-	sprintf(formatString, "%%%ds\t", printWidth);
+	snprintf(formatString, sizeof(formatString), "%%%ds [%%4d-%%4d]\t", printWidth);
 
 	/*First print target sequence*/
+	int tgtPosStart = -1;
+	int tgtPosEnd = -1;
 	cp++;
 	strncpy(tmp_name, my_data->seqs[target]->name, printWidth);
-	tmp_name[printWidth]='\0';
-	fprintf(ofp,formatString, tmp_name);
-	for (i=cp,pos_target=1;i<=2*my_matrices->maxl;i++) {
-		if (my_matrices->maxpath_state[i]==3) fprintf(ofp,"-");
+	tmp_name[printWidth] ='\0';
+	
+	// Create a place to hold the sequence alignment string:
+	unsigned int tmp_seq_pos = 0;
+	const unsigned int target_length = 1 + my_data->seqs[target]->length * 2;
+	char tmp_seq_string[target_length];
+	memset(tmp_seq_string, '\0', target_length);
+	
+	for (i=cp, pos_target=1; i <= 2*my_matrices->maxl; ++i) {
+		if (my_matrices->maxpath_state[i]==3) {
+			tmp_seq_string[tmp_seq_pos++] = '-';
+			tmp_seq_string[tmp_seq_pos] = '\0';
+		}
 		else {
-			fprintf(ofp,"%c",num2nuc(my_data->seqs[target]->seq[pos_target], my_data->type));
+			if ( tgtPosStart == -1 ) {
+				tgtPosStart = pos_target - 1;
+			}
+			tgtPosEnd = pos_target - 1;
+			
+			tmp_seq_string[tmp_seq_pos++] = num2nuc(my_data->seqs[target]->seq[pos_target], my_data->type);
+			tmp_seq_string[tmp_seq_pos] = '\0';
+			
 			pos_target++;
 		}
 	}
-	fprintf(ofp,"\n");
+	fprintf(ofp, formatString, tmp_name, tgtPosStart, tgtPosEnd);
+	fprintf(ofp, "%s", tmp_seq_string);
+	fprintf(ofp, "\n");
 	fflush(ofp);
 
 	/*Now do matching*/
-	for (i=1;i<=printWidth;i++) fprintf(ofp," ");
+	for (i=1; i <= printWidth + coordWidth; ++i) {
+		fprintf(ofp," ");
+	}
 	fprintf(ofp,"\t");
 	for (i=cp, pos_target=1;i<=2*my_matrices->maxl;i++) {
 		if (my_matrices->maxpath_state[i]==1) {
@@ -1663,42 +1686,61 @@ void kalign_vt(struct data *my_data, struct pars *my_pars, struct matrices *my_m
 	fflush(ofp);
 
 	/*Now do copy tracks - switch whenever gets to new value*/
+	int queryPosStart = -1;
+	int queryPosEnd = -1;
 	strncpy(tmp_name, my_data->seqs[my_matrices->maxpath_copy[cp]]->name, printWidth);
 	tmp_name[printWidth]='\0';
-	fprintf(ofp,formatString,tmp_name);
-	for (i=cp;i<=2*my_matrices->maxl;i++) {
+	memset(tmp_seq_string, '\0', target_length);
+	tmp_seq_pos = 0;
+	for (i=cp; i <= 2*my_matrices->maxl ; ++i) {
 
 		/*Check to see if need to make recombination event*/
-		if (i>cp && my_matrices->maxpath_copy[i]!=my_matrices->maxpath_copy[i-1]) {
+		if (i>cp && my_matrices->maxpath_copy[i] != my_matrices->maxpath_copy[i-1]) {
 			strncpy(tmp_name, my_data->seqs[my_matrices->maxpath_copy[i]]->name, printWidth);
-			tmp_name[printWidth]='\0';
+			tmp_name[printWidth] = '\0';
+
+			fprintf(ofp, formatString, tmp_name, queryPosStart, queryPosEnd);
+			fprintf(ofp, "%s", tmp_seq_string);
 			fprintf(ofp, "\n");
-			fprintf(ofp, formatString, tmp_name);
-			for (j=1;j<=(i-cp);j++) fprintf(ofp," ");
+
+			tmp_seq_pos = 0;
+
+                	if (queryPosStart != queryPosEnd) {
+                	    queryPosStart = my_matrices->maxpath_pos[i] - 1;
+                	    queryPosEnd = my_matrices->maxpath_pos[i] - 1;
+                	}
+
+			for (j=1;j<=(i-cp);j++){
+				tmp_seq_string[tmp_seq_pos++] = ' ';
+				tmp_seq_string[tmp_seq_pos] = '\0';
+			}
 		}
 
-		if (my_matrices->maxpath_state[i]==2) fprintf(ofp,"-");
+		if (my_matrices->maxpath_state[i]==2) {
+			tmp_seq_string[tmp_seq_pos++] = '-';
+			tmp_seq_string[tmp_seq_pos] = '\0';
+		}
 		else {
-			fprintf(ofp,"%c",num2nuc(my_data->seqs[my_matrices->maxpath_copy[i]]->seq[my_matrices->maxpath_pos[i]], my_data->type));
+			tmp_seq_string[tmp_seq_pos++] = num2nuc(my_data->seqs[my_matrices->maxpath_copy[i]]->seq[my_matrices->maxpath_pos[i]], my_data->type);
+			tmp_seq_string[tmp_seq_pos] = '\0';
+
+                	if (queryPosStart == -1) {
+                	    queryPosStart = my_matrices->maxpath_pos[i] - 1;
+                	}
+                	queryPosEnd = my_matrices->maxpath_pos[i] - 1;
 		}
 	}
 
-	fprintf(ofp,"\n\n");
-
-
-
+	fprintf(ofp, formatString, tmp_name, queryPosStart, queryPosEnd);
+	fprintf(ofp, "%s", tmp_seq_string);
+	fprintf(ofp, "\n\n\n");
 	fflush(ofp);
 	fclose(ofp);
 
 	return;
-
-
 }
 
-
-
 /*To estimate parameters by EM assuming no recombination*/
-
 void estimate_parameters_em_no_rec(struct data *my_data, struct pars *my_pars, struct matrices *my_matrices) {
 
 	int iteration, i, j, target, tmp_copy;
