@@ -267,15 +267,15 @@ char num2nuc(int i, int type) {
 
 	if (type == 1) {
 		if (i<0 || i>25) {
-			printf("\n\n***Error: cannot convert number to AA ***\n\n");
-			exit(0);
+			printf("\n\n***Error: cannot convert number to AA (%d)***\n\n", i);
+			exit(1);
 		}
 		return aa[i];
 	}
 	else {
 		if (i<0 || i>5) {
-			printf("\n\n***Error: cannot convert number to NT ***\n\n");
-			exit(0);
+			printf("\n\n***Error: cannot convert number to NT (%d)***\n\n", i);
+			exit(1);
 		}
 		return nuc[i];
 	}

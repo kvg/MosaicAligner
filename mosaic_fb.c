@@ -7,12 +7,14 @@
 #include "seqtools.h"
 #include "mosaic_fb.h"
 #include <stdlib.h>
+#include <locale.h>
 
 #define DEBUG 0
 
 main(int argc, char *argv[]) {
 
 	int target;
+	unsigned int seq_n;
 	long seed = -setseed();
 	struct data *my_data;
 	struct pars *my_pars;
@@ -56,6 +58,14 @@ main(int argc, char *argv[]) {
 		calculate_llk_over_rho_grid(my_data, my_pars, my_matrices);
 	}
 
+	/* Calculate the width to display the sequence names to the user: */
+	for (seq_n = 0; seq_n < my_data->nseq; ++seq_n) {
+		unsigned int s = strlen(my_data->seqs[seq_n]->name);
+		if ( s > gDISPLAY_WIDTH ) {
+			gDISPLAY_WIDTH = s; 
+		}
+	}
+
 	/*Now do alignments*/
 	/*If target group defined, run each target sequence against rest*/
 	my_pars->combined_llk=0.0;
@@ -69,7 +79,7 @@ main(int argc, char *argv[]) {
 
 	/*If estimated parameters, add them to alignment file*/
 	if (my_pars->estimate==1 || my_pars->grid  || my_pars->verbose) {
-		ofp = fopen(my_pars->alignment_file, "a");
+		ofp = fopen(my_pars->alignment_file, ALIGNMENT_FILE_APPEND);
 		print_parameters(my_pars, ofp);
 		fclose(ofp);
 	}
@@ -467,7 +477,7 @@ struct pars * get_pars(int argc, char *argv[]) {
 		fclose(ofp);
 	}
 
-	ofp = fopen(my_pars->alignment_file, "w");
+	ofp = fopen(my_pars->alignment_file, ALIGNMENT_FILE_WRITE);
 	if (my_pars->ml) fprintf(ofp,"#File containing maximum likelihood alignment for each sequences\n");
 	else fprintf(ofp,"#File containing maximum accuracy alignment for each sequences\n");
 	fprintf(ofp,"#Input parameters = ");
@@ -1114,7 +1124,7 @@ void print_max_acc_alignment(struct data *my_data, struct pars *my_pars, struct 
 	}
 
 
-	ofp = fopen(my_pars->alignment_file, "a");
+	ofp = fopen(my_pars->alignment_file, ALIGNMENT_FILE_APPEND);
 	fprintf(ofp,"\nTarget: %s\tLength: %i\tLlk: %.3lf\n",my_data->seqs[target]->name, my_data->seqs[target]->length, my_matrices->llk);
 
 	/*First print target sequence*/
@@ -1352,7 +1362,6 @@ void print_backward_matrices(struct data *my_data, struct pars *my_pars, struct 
 
 
 /*Do kwise alignment with Viterbi*/
-
 void kalign_vt(struct data *my_data, struct pars *my_pars, struct matrices *my_matrices, int target) {
 
 	int pos_target, pos_seq, seq, l1, l2, *s1, *s2, tmp_copy;
@@ -1387,7 +1396,6 @@ void kalign_vt(struct data *my_data, struct pars *my_pars, struct matrices *my_m
 	tb_d = (double ***) my_matrices->m2_d;
 
 	/*Set everything to small*/
-	
 	for (seq=1;seq<=my_data->nseq;seq++) if (my_matrices->who_copy[seq]) {
 		l2=my_data->seqs[seq]->length;
 		for (pos_target=0;pos_target<=(l1+1);pos_target++) 
@@ -1403,7 +1411,6 @@ void kalign_vt(struct data *my_data, struct pars *my_pars, struct matrices *my_m
 	
 
 	/*Initialise Viterbi matrices*/
-			
 	for (seq=1, max_r = SMALL; seq<=my_data->nseq;seq++) if (my_matrices->who_copy[seq]) {
 
 		l2=my_data->seqs[seq]->length;
@@ -1549,7 +1556,6 @@ void kalign_vt(struct data *my_data, struct pars *my_pars, struct matrices *my_m
 		print_backward_matrices(my_data, my_pars, my_matrices, target, stdout);
 	}
 
-
 	/*Now print maximum likelihood*/
 	printf("\nMaximum Log likelihood  = %.5lf\n", max_r + my_pars->lterm);
 	my_matrices->llk = max_r + my_pars->lterm;
@@ -1616,10 +1622,10 @@ void kalign_vt(struct data *my_data, struct pars *my_pars, struct matrices *my_m
 	/*Reset copy state*/
 	my_matrices->who_copy[target]=tmp_copy;
 
-	ofp = fopen(my_pars->alignment_file, "a");
+	ofp = fopen(my_pars->alignment_file, ALIGNMENT_FILE_APPEND);
 	fprintf(ofp,"\nTarget: %s\tLength: %i\tMLlk: %.3lf\n",my_data->seqs[target]->name, my_data->seqs[target]->length, my_matrices->llk);
 
-	const int printWidth = 30;
+	const int printWidth = gDISPLAY_WIDTH;
 	char formatString[100];
 	sprintf(formatString, "%%%ds\t", printWidth);
 

@@ -24,6 +24,11 @@
 
 #define MIN_PROB 1e-32
 
+#define ALIGNMENT_FILE_WRITE "w"
+#define ALIGNMENT_FILE_APPEND "a"
+
+unsigned int gDISPLAY_WIDTH = 30;
+
 long *idum;
 
 		/*Amino acids - IUPAC convention
