@@ -1739,11 +1739,9 @@ void kalign_vt(struct data *my_data, struct pars *my_pars, struct matrices *my_m
 				queryPosStart = my_matrices->maxpath_pos[i] - 1;
 			}
 			queryPosEnd = my_matrices->maxpath_pos[i] - 1;
-			fprintf(ofp, "%d,", my_matrices->maxpath_pos[i] - 1);
 		}
 	}
 
-	fprintf(ofp, "\n");
 	fprintf(ofp, formatString, tmp_name, queryPosStart, queryPosEnd);
 	fprintf(ofp, "%s", tmp_seq_string);
 	fprintf(ofp, "\n\n\n");
