@@ -1696,13 +1696,13 @@ void kalign_vt(struct data *my_data, struct pars *my_pars, struct matrices *my_m
 
 		/*Check to see if need to make recombination event*/
 		if (i>cp && my_matrices->maxpath_copy[i] != my_matrices->maxpath_copy[i-1]) {
-			strncpy(tmp_name, my_data->seqs[my_matrices->maxpath_copy[i]]->name, printWidth);
-			tmp_name[printWidth] = '\0';
 
 			fprintf(ofp, formatString, tmp_name, queryPosStart, queryPosEnd);
 			fprintf(ofp, "%s", tmp_seq_string);
 			fprintf(ofp, "\n");
-
+			
+			strncpy(tmp_name, my_data->seqs[my_matrices->maxpath_copy[i]]->name, printWidth);
+			tmp_name[printWidth] = '\0';
 			tmp_seq_pos = 0;
 
                 	if (queryPosStart != queryPosEnd) {
