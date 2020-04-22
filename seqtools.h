@@ -3,6 +3,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdbool.h>
 
 #define MAXNAME 1000
 #define MAXFILENAME 1000
@@ -121,6 +122,9 @@ struct pars {	/*keeps program parameters*/
 
 	/*Some global values to keep track of*/
 	double combined_llk;
+
+	// If true, will split a sequence when the position of sequential bases in the alignment decreases
+	bool breakOnLowerSeqPos; 
 
 };
 
