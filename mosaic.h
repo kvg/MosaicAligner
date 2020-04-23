@@ -9,7 +9,7 @@
 #include "tools.h"
 #include "seqtools.h"
 
-#define DEBUG 1
+#define DEBUG 0
 
 long *idum;
 

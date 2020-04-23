@@ -6,13 +6,16 @@
 #include "tools.h"
 #include "seqtools.h"
 #include "mosaic_fb.h"
+#include <stdlib.h>
+#include <locale.h>
+#include <stdbool.h>
 
 #define DEBUG 0
 
-
-main(int argc, char *argv[]) {
+int main(int argc, char *argv[]) {
 
 	int target;
+	unsigned int seq_n;
 	long seed = -setseed();
 	struct data *my_data;
 	struct pars *my_pars;
@@ -28,7 +31,7 @@ main(int argc, char *argv[]) {
 	if (argc==1 || argv[1]=="-h" || argv[1]=="-?") print_help(stdout);
 
 	my_pars = (struct pars *) get_pars(argc, argv);
-	my_data = read_fasta(my_pars, 0);  
+	my_data = read_fasta(my_pars, 0);
 
 	printf("\n\nRead %i sequences\n\n", my_data->nseq);
 	if (DEBUG) print_sequences(my_data, stdout);
@@ -56,6 +59,14 @@ main(int argc, char *argv[]) {
 		calculate_llk_over_rho_grid(my_data, my_pars, my_matrices);
 	}
 
+	/* Calculate the width to display the sequence names to the user: */
+	for (seq_n = 0; seq_n < my_data->nseq; ++seq_n) {
+		unsigned int s = strlen(my_data->seqs[seq_n]->name);
+		if ( s > gDISPLAY_WIDTH ) {
+			gDISPLAY_WIDTH = s; 
+		}
+	}
+
 	/*Now do alignments*/
 	/*If target group defined, run each target sequence against rest*/
 	my_pars->combined_llk=0.0;
@@ -68,8 +79,8 @@ main(int argc, char *argv[]) {
 	}
 
 	/*If estimated parameters, add them to alignment file*/
-	if (my_pars->estimate==1 || my_pars->grid  || my_pars->verbose) {
-		ofp = fopen(my_pars->alignment_file, "a");
+	if (my_pars->estimate==1 || my_pars->grid || my_pars->verbose) {
+		ofp = fopen(my_pars->alignment_file, ALIGNMENT_FILE_APPEND);
 		print_parameters(my_pars, ofp);
 		fclose(ofp);
 	}
@@ -115,9 +126,9 @@ void print_parameters(struct pars *my_pars, FILE *ofp) {
 	fprintf(ofp,"Parameters\n\n");
 	fprintf(ofp,"Gap initiation: %.5lf\n", my_pars->del);
 	fprintf(ofp,"Gap extension:  %.5lf\n", my_pars->eps);
-	fprintf(ofp,"Termination:    %.5lf\n", my_pars->term);
+	fprintf(ofp,"Termination:	%.5lf\n", my_pars->term);
 	fprintf(ofp,"Recombination:  %.5lf\n", my_pars->rho);
-	fprintf(ofp,"fMatch:         %.5lf\n", my_pars->piM);
+	fprintf(ofp,"fMatch:		 %.5lf\n", my_pars->piM);
 
 	fprintf(ofp,"\nState frequencies:\n");
 	for (i=0;i<my_pars->nstate;i++) fprintf(ofp,"%c\t%.5lf\n",num2nuc(i, my_pars->type), my_pars->si[i]);
@@ -196,6 +207,7 @@ struct pars * get_pars(int argc, char *argv[]) {
 	my_pars->rho_high=1e-1;
 	my_pars->log_scale=1;
 
+	my_pars->breakOnLowerSeqPos = false;
 
 	for (k=1; k<argc; k++) if (strchr(argv[k], '-')) {
 		
@@ -320,6 +332,10 @@ struct pars * get_pars(int argc, char *argv[]) {
 			my_pars->verbose=0;
 		}
 
+		if (strcmp(in_str, "-breakOnLowerSeqPos") == 0) {
+			my_pars->breakOnLowerSeqPos = true;
+		}
+
 	}
 
 
@@ -398,8 +414,8 @@ struct pars * get_pars(int argc, char *argv[]) {
 
 	}
 	else {
-		my_pars->posterior_file = strcat(my_pars->posterior_file,  "post.txt");
-		my_pars->alignment_file = strcat(my_pars->alignment_file,  "align.txt");
+		my_pars->posterior_file = strcat(my_pars->posterior_file, "post.txt");
+		my_pars->alignment_file = strcat(my_pars->alignment_file, "align.txt");
 		my_pars->llk_grid_file = strcat(my_pars->llk_grid_file, "grid.txt");
 	}
 
@@ -467,7 +483,7 @@ struct pars * get_pars(int argc, char *argv[]) {
 		fclose(ofp);
 	}
 
-	ofp = fopen(my_pars->alignment_file, "w");
+	ofp = fopen(my_pars->alignment_file, ALIGNMENT_FILE_WRITE);
 	if (my_pars->ml) fprintf(ofp,"#File containing maximum likelihood alignment for each sequences\n");
 	else fprintf(ofp,"#File containing maximum accuracy alignment for each sequences\n");
 	fprintf(ofp,"#Input parameters = ");
@@ -666,7 +682,7 @@ void kalign_fb(struct data *my_data, struct pars *my_pars, struct matrices *my_m
 
 			for (pos_seq=1;pos_seq<=l2;pos_seq++) {
 
-  				llk_r += (double) exp(backward_m[seq][pos_seq][pos_target+1]-max_r)*(my_pars->sm[s1[pos_target+1]][s2[pos_seq]])*(my_pars->piM);
+ 				llk_r += (double) exp(backward_m[seq][pos_seq][pos_target+1]-max_r)*(my_pars->sm[s1[pos_target+1]][s2[pos_seq]])*(my_pars->piM);
 				llk_r += (double) exp(backward_i[seq][pos_seq][pos_target+1]-max_r)*(my_pars->si[s1[pos_target+1]])*(my_pars->piI);
 			}
 		}
@@ -1056,7 +1072,7 @@ void print_max_acc_alignment(struct data *my_data, struct pars *my_pars, struct 
 			}
 		}
 
-		/*If from M then  look at marginal best and delete state*/
+		/*If from M then look at marginal best and delete state*/
 		else if (my_matrices->maxpath_state[cp]==1) {
 
 			for (seq=1, max_acc=0.0;seq<=my_data->nseq;seq++) if (my_matrices->who_copy[seq]) {
@@ -1114,7 +1130,7 @@ void print_max_acc_alignment(struct data *my_data, struct pars *my_pars, struct 
 	}
 
 
-	ofp = fopen(my_pars->alignment_file, "a");
+	ofp = fopen(my_pars->alignment_file, ALIGNMENT_FILE_APPEND);
 	fprintf(ofp,"\nTarget: %s\tLength: %i\tLlk: %.3lf\n",my_data->seqs[target]->name, my_data->seqs[target]->length, my_matrices->llk);
 
 	/*First print target sequence*/
@@ -1131,7 +1147,7 @@ void print_max_acc_alignment(struct data *my_data, struct pars *my_pars, struct 
 	fflush(ofp);
 
 	/*Now do matching*/
-	fprintf(ofp,"          \t");
+	fprintf(ofp,"		  \t");
 	for (i=cp, pos_target=1;i<=2*my_matrices->maxl;i++) {
 		if (my_matrices->maxpath_state[i]==1) {
 			if (my_data->seqs[target]->seq[pos_target] == my_data->seqs[my_matrices->maxpath_copy[i]]->seq[my_matrices->maxpath_pos[i]]) fprintf(ofp,"|");
@@ -1352,7 +1368,6 @@ void print_backward_matrices(struct data *my_data, struct pars *my_pars, struct 
 
 
 /*Do kwise alignment with Viterbi*/
-
 void kalign_vt(struct data *my_data, struct pars *my_pars, struct matrices *my_matrices, int target) {
 
 	int pos_target, pos_seq, seq, l1, l2, *s1, *s2, tmp_copy;
@@ -1387,7 +1402,6 @@ void kalign_vt(struct data *my_data, struct pars *my_pars, struct matrices *my_m
 	tb_d = (double ***) my_matrices->m2_d;
 
 	/*Set everything to small*/
-	
 	for (seq=1;seq<=my_data->nseq;seq++) if (my_matrices->who_copy[seq]) {
 		l2=my_data->seqs[seq]->length;
 		for (pos_target=0;pos_target<=(l1+1);pos_target++) 
@@ -1403,7 +1417,6 @@ void kalign_vt(struct data *my_data, struct pars *my_pars, struct matrices *my_m
 	
 
 	/*Initialise Viterbi matrices*/
-			
 	for (seq=1, max_r = SMALL; seq<=my_data->nseq;seq++) if (my_matrices->who_copy[seq]) {
 
 		l2=my_data->seqs[seq]->length;
@@ -1549,7 +1562,6 @@ void kalign_vt(struct data *my_data, struct pars *my_pars, struct matrices *my_m
 		print_backward_matrices(my_data, my_pars, my_matrices, target, stdout);
 	}
 
-
 	/*Now print maximum likelihood*/
 	printf("\nMaximum Log likelihood  = %.5lf\n", max_r + my_pars->lterm);
 	my_matrices->llk = max_r + my_pars->lterm;
@@ -1616,31 +1628,62 @@ void kalign_vt(struct data *my_data, struct pars *my_pars, struct matrices *my_m
 	/*Reset copy state*/
 	my_matrices->who_copy[target]=tmp_copy;
 
-	ofp = fopen(my_pars->alignment_file, "a");
+	ofp = fopen(my_pars->alignment_file, ALIGNMENT_FILE_APPEND);
 	fprintf(ofp,"\nTarget: %s\tLength: %i\tMLlk: %.3lf\n",my_data->seqs[target]->name, my_data->seqs[target]->length, my_matrices->llk);
 
+	const int printWidth = gDISPLAY_WIDTH;
+	const int coordWidth = 12;
+	char formatString[100];
+	snprintf(formatString, sizeof(formatString), "%%%ds [%%4d-%%4d]\t", printWidth);
+
 	/*First print target sequence*/
+	int tgtPosStart = -1;
+	int tgtPosEnd = -1;
 	cp++;
-	strncpy(tmp_name, my_data->seqs[target]->name, 15);
-	tmp_name[15]='\0';
-	fprintf(ofp,"%15s\t", tmp_name);
-	for (i=cp,pos_target=1;i<=2*my_matrices->maxl;i++) {
-		if (my_matrices->maxpath_state[i]==3) fprintf(ofp,"-");
+	strncpy(tmp_name, my_data->seqs[target]->name, printWidth);
+	tmp_name[printWidth] ='\0';
+	
+	// Create a place to hold the sequence alignment string:
+	unsigned int tmp_seq_pos = 0;
+	const unsigned int target_length = 1 + my_data->seqs[target]->length * 2;
+	char tmp_seq_string[target_length];
+	memset(tmp_seq_string, '\0', target_length);
+	
+	for (i=cp, pos_target=1; i <= 2*my_matrices->maxl; ++i) {
+		if (my_matrices->maxpath_state[i]==3) {
+			tmp_seq_string[tmp_seq_pos++] = '-';
+			tmp_seq_string[tmp_seq_pos] = '\0';
+		}
 		else {
-			fprintf(ofp,"%c",num2nuc(my_data->seqs[target]->seq[pos_target], my_data->type));
+			if ( tgtPosStart == -1 ) {
+				tgtPosStart = pos_target - 1;
+			}
+			tgtPosEnd = pos_target - 1;
+			
+			tmp_seq_string[tmp_seq_pos++] = num2nuc(my_data->seqs[target]->seq[pos_target], my_data->type);
+			tmp_seq_string[tmp_seq_pos] = '\0';
+			
 			pos_target++;
 		}
 	}
-	fprintf(ofp,"\n");
+	fprintf(ofp, formatString, tmp_name, tgtPosStart, tgtPosEnd);
+	fprintf(ofp, "%s", tmp_seq_string);
+	fprintf(ofp, "\n");
 	fflush(ofp);
 
 	/*Now do matching*/
-	for (i=1;i<=15;i++) fprintf(ofp," ");
+	for (i=1; i <= printWidth + coordWidth; ++i) {
+		fprintf(ofp," ");
+	}
 	fprintf(ofp,"\t");
-	for (i=cp, pos_target=1;i<=2*my_matrices->maxl;i++) {
+	for (i=cp, pos_target=1; i <= 2*my_matrices->maxl; ++i) {
 		if (my_matrices->maxpath_state[i]==1) {
-			if (my_data->seqs[target]->seq[pos_target] == my_data->seqs[my_matrices->maxpath_copy[i]]->seq[my_matrices->maxpath_pos[i]]) fprintf(ofp,"|");
-			else fprintf(ofp," ");
+			if (my_data->seqs[target]->seq[pos_target] == my_data->seqs[my_matrices->maxpath_copy[i]]->seq[my_matrices->maxpath_pos[i]]) {
+				fprintf(ofp,"|");
+			}
+			else {
+				fprintf(ofp," ");
+			}
 			pos_target++;
 		}
 		else if (my_matrices->maxpath_state[i]==2) {
@@ -1653,41 +1696,62 @@ void kalign_vt(struct data *my_data, struct pars *my_pars, struct matrices *my_m
 	fflush(ofp);
 
 	/*Now do copy tracks - switch whenever gets to new value*/
-	strncpy(tmp_name, my_data->seqs[my_matrices->maxpath_copy[cp]]->name, 15);
-	tmp_name[15]='\0';
-	fprintf(ofp,"%15s\t",tmp_name);
-	for (i=cp;i<=2*my_matrices->maxl;i++) {
+	int queryPosStart = -1;
+	int queryPosEnd = -1;
+	strncpy(tmp_name, my_data->seqs[my_matrices->maxpath_copy[cp]]->name, printWidth);
+	tmp_name[printWidth]='\0';
+	memset(tmp_seq_string, '\0', target_length);
+	tmp_seq_pos = 0;
+	for (i=cp; i <= 2*my_matrices->maxl; ++i) {
 
 		/*Check to see if need to make recombination event*/
-		if (i>cp && my_matrices->maxpath_copy[i]!=my_matrices->maxpath_copy[i-1]) {
-			strncpy(tmp_name, my_data->seqs[my_matrices->maxpath_copy[i]]->name, 15);
-			tmp_name[15]='\0';
-			fprintf(ofp,"\n%15s\t", tmp_name);
-			for (j=1;j<=(i-cp);j++) fprintf(ofp," ");
+		if ((i>cp && my_matrices->maxpath_copy[i] != my_matrices->maxpath_copy[i-1]) ||
+				(my_pars->breakOnLowerSeqPos && my_matrices->maxpath_pos[i] < my_matrices->maxpath_pos[i-1]) ) {
+
+			fprintf(ofp, formatString, tmp_name, queryPosStart, queryPosEnd);
+			fprintf(ofp, "%s", tmp_seq_string);
+			fprintf(ofp, "\n");
+			
+			strncpy(tmp_name, my_data->seqs[my_matrices->maxpath_copy[i]]->name, printWidth);
+			tmp_name[printWidth] = '\0';
+			tmp_seq_pos = 0;
+
+			if (queryPosStart != queryPosEnd) {
+				queryPosStart = my_matrices->maxpath_pos[i] - 1;
+				queryPosEnd = my_matrices->maxpath_pos[i] - 1;
+			}
+
+			for (j=1;j<=(i-cp);j++){
+				tmp_seq_string[tmp_seq_pos++] = ' ';
+				tmp_seq_string[tmp_seq_pos] = '\0';
+			}
 		}
 
-		if (my_matrices->maxpath_state[i]==2) fprintf(ofp,"-");
+		if (my_matrices->maxpath_state[i]==2) {
+			tmp_seq_string[tmp_seq_pos++] = '-';
+			tmp_seq_string[tmp_seq_pos] = '\0';
+		}
 		else {
-			fprintf(ofp,"%c",num2nuc(my_data->seqs[my_matrices->maxpath_copy[i]]->seq[my_matrices->maxpath_pos[i]], my_data->type));
+			tmp_seq_string[tmp_seq_pos++] = num2nuc(my_data->seqs[my_matrices->maxpath_copy[i]]->seq[my_matrices->maxpath_pos[i]], my_data->type);
+			tmp_seq_string[tmp_seq_pos] = '\0';
+
+			if (queryPosStart == -1) {
+				queryPosStart = my_matrices->maxpath_pos[i] - 1;
+			}
+			queryPosEnd = my_matrices->maxpath_pos[i] - 1;
 		}
 	}
 
-	fprintf(ofp,"\n\n");
-
-
-
+	fprintf(ofp, formatString, tmp_name, queryPosStart, queryPosEnd);
+	fprintf(ofp, "%s", tmp_seq_string);
+	fprintf(ofp, "\n\n\n");
 	fflush(ofp);
 	fclose(ofp);
 
 	return;
-
-
 }
 
-
-
 /*To estimate parameters by EM assuming no recombination*/
-
 void estimate_parameters_em_no_rec(struct data *my_data, struct pars *my_pars, struct matrices *my_matrices) {
 
 	int iteration, i, j, target, tmp_copy;
@@ -2312,9 +2376,10 @@ void print_help(FILE *ofp) {
 	fprintf(ofp,"-tag <string>\t\tTag to attach to output files\n");
 	fprintf(ofp,"-group <int> <string1> <string2> ... \tNumber of groups to split data into and identifiers\n");
 	fprintf(ofp,"-target <string>\tGroup to analyse as target sequences\n");
-	fprintf(ofp,"-psum           \tPrint out summed posteriors for match states in each sequence\n");
+	fprintf(ofp,"-psum		   \tPrint out summed posteriors for match states in each sequence\n");
 	fprintf(ofp,"-estimate\t\tEstimate parameters by EM with Pr{rec}=0\n");
 	fprintf(ofp,"-grid <double> <double> <int> <flag> \tGrid for estimation of rho: values required are start, end, #pts and flag indicating whether on log scale\n");
+	fprintf(ofp,"-breakOnLowerSeqPos\tIf true, will split a sequence when the position of sequential bases in the alignment decreases\n");
 
 	fprintf(ofp,"\n\nAdditional options\n\n");
 /*	fprintf(ofp,"-e1\t\t\tFlag that sets emission probabilities to 1\n");*/
