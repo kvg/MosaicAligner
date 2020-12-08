@@ -60,7 +60,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	/* Calculate the width to display the sequence names to the user: */
-	for (seq_n = 0; seq_n < my_data->nseq; ++seq_n) {
+	for (seq_n = 1; seq_n < my_data->nseq; ++seq_n) {
 		unsigned int s = strlen(my_data->seqs[seq_n]->name);
 		if ( s > gDISPLAY_WIDTH ) {
 			gDISPLAY_WIDTH = s; 
