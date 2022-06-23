@@ -175,6 +175,7 @@ struct pars * get_pars(int argc, char *argv[]) {
 	my_pars->rho=(double) DEFAULT_REC;
 	my_pars->term=(double) DEFAULT_TERM;
 	my_pars->pmatch = (double) DEFAULT_PMATCH;
+    unsigned int SET_PARAMS = 0;
 	my_pars->type = -1;
 
 	my_pars->input_filename = (char *) malloc((size_t) MAXFILENAME*sizeof(char));
@@ -281,18 +282,22 @@ struct pars * get_pars(int argc, char *argv[]) {
 
 		if (strcmp(in_str, "-rec") == 0) {
 			my_pars->rho = (double) atof(argv[k+1]);
+            SET_PARAMS |= REC_SET;
 		}
 
 		if (strcmp(in_str, "-del") == 0) {
 			my_pars->del = (double) atof(argv[k+1]);
+            SET_PARAMS |= DEL_SET;
 		}
 
 		if (strcmp(in_str, "-eps") == 0) {
 			my_pars->eps = (double) atof(argv[k+1]);
+            SET_PARAMS |= EPS_SET;
 		}
 
 		if (strcmp(in_str, "-term") == 0) {
 			my_pars->term = (double) atof(argv[k+1]);
+            SET_PARAMS |= TERM_SET;
 		}
 
 		if (strcmp(in_str, "-e1") == 0) {
@@ -352,7 +357,7 @@ struct pars * get_pars(int argc, char *argv[]) {
 			printf("\n\n***Error: cannot open file with input parameters ***\n\n");
 			exit(1);
 		}
-		read_params_from_file(my_pars, ifp);
+		read_params_from_file(my_pars, ifp, SET_PARAMS);
 		fclose(ifp);
 	}
 
@@ -2160,7 +2165,7 @@ void calculate_expected_values(struct data *my_data, struct pars *my_pars, struc
 
 /*To read parameters from input file*/
 
-void read_params_from_file(struct pars *my_pars, FILE *ifp){
+void read_params_from_file(struct pars *my_pars, FILE *ifp, unsigned int SET_PARAMS){
 
 	int i, j;
 	char *c, *line, **end_ptr;
@@ -2179,6 +2184,7 @@ void read_params_from_file(struct pars *my_pars, FILE *ifp){
 		if(!line) break;
 
 		if (c=strstr(line, "Gap initiation")) {
+            if (SET_PARAMS & DEL_SET) continue;
 			c = strchr(c, ':');
 			if (!c) {
 				printf("\n\n***Error: incorrect input format in parameter file ***\n\n");
@@ -2190,6 +2196,7 @@ void read_params_from_file(struct pars *my_pars, FILE *ifp){
 
 		}
 		else if (c=strstr(line, "Gap extension")) {
+            if (SET_PARAMS & EPS_SET) continue;
 			c = strchr(c, ':');
 			if (!c) {
 				printf("\n\n***Error: incorrect input format in parameter file ***\n\n");
@@ -2201,6 +2208,7 @@ void read_params_from_file(struct pars *my_pars, FILE *ifp){
 
 		}
 		else if (c=strstr(line, "Termination")) {
+            if (SET_PARAMS & TERM_SET) continue;
 			c = strchr(c, ':');
 			if (!c) {
 				printf("\n\n***Error: incorrect input format in parameter file ***\n\n");
@@ -2212,6 +2220,7 @@ void read_params_from_file(struct pars *my_pars, FILE *ifp){
 
 		}
 		else if (c=strstr(line, "Recombination")) {
+            if (SET_PARAMS & REC_SET) continue;
 			c = strchr(c, ':');
 			if (!c) {
 				printf("\n\n***Error: incorrect input format in parameter file ***\n\n");
@@ -2220,7 +2229,6 @@ void read_params_from_file(struct pars *my_pars, FILE *ifp){
 			c++;
 			my_pars->rho = (double) strtod(c, end_ptr);
 			if (my_pars->rho<=MIN_PROB) my_pars->rho = MIN_PROB;
-;
 		}
 
 		else if(c=strstr(line, "State frequencies")) {
@@ -2367,7 +2375,7 @@ void print_help(FILE *ofp) {
 	fprintf(ofp,"-seq <file>\t\tName of file containing sequences in FASTA format\n");
 
 	fprintf(ofp,"\n\nOptional parameters\n\n");
-	fprintf(ofp,"-params <file>\tName of file containing input parameters\n");
+	fprintf(ofp,"-params <file>\t\tName of file containing input parameters. Note manually set parameters (e.g. -rec) will override values in this file\n");
 	fprintf(ofp,"-rec <double>\t\tRecombination probability (default = %.4lf)\n", (double) DEFAULT_REC);
 	fprintf(ofp,"-del <double>\t\tRate of moving to delete state (default = %.3lf)\n", (double) DEFAULT_DEL);
 	fprintf(ofp,"-eps <double>\t\tRate of extending in delete/insert state (default = %.3lf)\n", (double) DEFAULT_EPS);

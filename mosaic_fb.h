@@ -18,6 +18,10 @@
 #define DEFAULT_TERM 0.001
 #define DEFAULT_PMATCH 0.0
 #define DEFAULT_PIM 0.75
+#define REC_SET 1
+#define DEL_SET 2
+#define EPS_SET 4
+#define TERM_SET 8
 
 #define LLK_TOL 0.01
 #define MAX_IT_EM 10
@@ -167,7 +171,8 @@ void kalign_vt(struct data *my_data, struct pars *my_pars, struct matrices *my_m
 void estimate_parameters_em_no_rec(struct data *my_data, struct pars *my_pars, struct matrices *my_matrices);
 void kalign_fb_no_rec(struct data *my_data, struct pars *my_pars, struct matrices *my_matrices, int target);
 void calculate_expected_values(struct data *my_data, struct pars *my_pars, struct matrices *my_matrices, int target);
-void read_params_from_file(struct pars *my_pars, FILE *ifp);
+void read_params_from_file(struct pars *my_pars, FILE *ifp,
+                           unsigned int SET_PARAMS);
 void print_help(FILE *ofp);
 void print_parameters(struct pars *my_pars, FILE *ofp);
 void calculate_llk_over_rho_grid(struct data *my_data, struct pars *my_pars, struct matrices *my_matrices);
